@@ -1,8 +1,0 @@
-# @dp.message_handler(commands='start')
-# async def start(message:types.Message):
-#     print(message)
-#     await message.answer(f"""Geeks готов к услугам
-# команды которые существуют
-# Привет,привет,/help,/test
-# {message.from_user.full_name}
-#                          """)

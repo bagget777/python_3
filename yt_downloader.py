@@ -10,4 +10,3 @@ elif type_obj == "mp3":
     yt.streams.filter(only_audio=True).first().download('audio', f'{yt.title}.mp3')
 # yt.streams.filter(progressive=True, file_extension='mp4').first().download()
 print("скачиваю")
-# 

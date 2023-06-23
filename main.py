@@ -3,18 +3,15 @@ from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.storage import FSMContext
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
-from dotenv import load_dotenv
-from pytube import YouTube
-import sqlite3, time, logging, os
+from config import token
+import sqlite3, time, logging
 
-load_dotenv('.env')
-
-bot = Bot(os.environ.get('token'))
+bot = Bot(token)
 storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 logging.basicConfig(level=logging.INFO)
 
-database = sqlite3.connect('youtube.db')
+database = sqlite3.connect('users.db')
 cursor = database.cursor()
 cursor.execute("""CREATE TABLE IF NOT EXISTS users(
     user_id INT,
@@ -26,6 +23,14 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS users(
 );
 """)
 cursor.connection.commit()
+
+keyboard_buttons = [
+    KeyboardButton('/start'),
+    KeyboardButton('/help'),
+    KeyboardButton('/test'),
+    KeyboardButton('/mailing')
+]
+keyboard_one = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True, row_width=30).add(*keyboard_buttons)
 
 @dp.message_handler(commands='start')
 async def start(message:types.Message):
@@ -39,54 +44,45 @@ async def start(message:types.Message):
                     '{time.ctime()}');
                     """)
     cursor.connection.commit()
-    await message.answer(f"Привет {message.from_user.full_name}!\nЯ помогу тебе скачать видео или же аудио с ютуба. Просто отправь ссылку из ютуба )")
+    await message.answer(f"Привет {message.from_user.full_name}!", reply_markup=keyboard_one)
 
-format_buttons = [
-    KeyboardButton('Mp3'),
-    KeyboardButton('Mp4')
-]
+@dp.message_handler(commands='help')
+async def help(message:types.Message):
+    await message.answer("Чем я могу вам помочь?")
 
-format_keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(*format_buttons)
+@dp.message_handler(text="Привет")
+async def hello(message:types.Message):
+    await message.reply("Приветик")
 
-class FormatState(StatesGroup):
-    url = State()
-    format_url = State()
+@dp.message_handler(commands='test')
+async def testing(message:types.Message):
+    await message.answer_dice()
+    await message.answer_location(40.51933912658552, 72.80307604619333)
+    await message.answer_photo("https://lh4.googleusercontent.com/n6Qbp6DJX0Kv8nl4Se7_FDoZlXyIXdBWYV7SaA-FCw-ZkR2uGrAqb1ssxft2SbRA4yrgk8-IVhd3vFkzoWma6o9Jc0HrUSffhNC8-Z0PuVDPF30up-CvppiczhNMw0Iro_XUzTqu9JrMRAhmU0oTOrc")
+
+class MailingState(StatesGroup):
+    text = State()
+
+@dp.message_handler(commands='mailing')
+async def mailing(message:types.Message):
+    if message.from_user.id in [731982105]:
+        await message.reply("Введите текст для рассылки:")
+        await MailingState.text.set()
+    else:
+        await message.answer("У вас нет прав")
+
+@dp.message_handler(state=MailingState.text)
+async def send_mailing_text(message:types.Message, state:FSMContext):
+    await message.answer("Начинаю рассылку...")
+    cursor.execute("SELECT chat_id FROM users;")
+    chats_id = cursor.fetchall()
+    for chat in chats_id:
+        await bot.send_message(chat[0], message.text)
+    await message.answer("Рассылка окончена!")
+    await state.finish()
 
 @dp.message_handler()
-async def get_youtube_url(message:types.Message, state:FSMContext):
-    if 'https://youtu.be/' in message.text:
-        await message.reply("В каком формате вы хотите получить результат?", reply_markup=format_keyboard)
-        await state.update_data(url=message.text)
-        await FormatState.format_url.set()
-    else:
-        await message.reply("Неправильный формат ссылки")
-
-@dp.message_handler(state=FormatState.format_url)
-async def download(message:types.Message, state:FSMContext):
-    data = await state.get_data()
-    url = data.get('url')
-    yt = YouTube(url, use_oauth=True)
-
-    if message.text == 'Mp3':
-        await message.answer("Скачиваем аудио, ожидайте...")
-        yt.streams.filter(only_audio=True).first().download('audio', f'{yt.title}.mp3')
-        await message.answer("Скачалось, отправляю...")
-
-        with open(f'audio/{yt.title}.mp3', 'rb') as audio:
-            await bot.send_audio(message.chat.id, audio)
-
-        os.remove(f'audio/{yt.title}.mp3')  # Delete the audio file
-
-    elif message.text == 'Mp4':
-        await message.answer("Скачиваем видео, ожидайте...")
-        yt.streams.get_highest_resolution().download('video', f'{yt.title}.mp4')
-        await message.answer("Скачалось, отправляю...")
-
-        with open(f'video/{yt.title}.mp4', 'rb') as video:
-            await bot.send_video(message.chat.id, video)
-
-        os.remove(f'video/{yt.title}.mp4')  # Delete the video file
-
-    await state.finish()
+async def not_found(message:types.Message):
+    await message.reply("Я вас не понял, введите /help")
 
 executor.start_polling(dp)

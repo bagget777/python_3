@@ -2,7 +2,7 @@ from aiogram import Bot, Dispatcher, types, executor
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.dispatcher.storage import FSMContext
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.types import KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from dotenv import load_dotenv
 from pytube import YouTube
 import sqlite3, time, logging, os
@@ -34,4 +34,3 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS users(
 """)
 cursor.connection.commit()
 
-# Rest of the code...
